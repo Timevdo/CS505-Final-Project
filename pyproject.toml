@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "cs505-final-project"
+version = "0.1.0"
+description = ""
+authors = ["Ezra <git@ezranewman.com>"]
+readme = "README.md"
+packages = [{include = "cs505_final_project"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.31.0"
+tqdm = "^4.66.1"
+beautifulsoup4 = "^4.12.2"
+pyrate-limiter = "^2.0.0"
+scrapy = "^2.11.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
