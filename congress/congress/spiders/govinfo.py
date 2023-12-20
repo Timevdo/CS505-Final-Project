@@ -71,19 +71,7 @@ class GovInfoSpider(scrapy.Spider):
 class DateRangeGovInfoSpider(GovInfoSpider):
 	name = "daterangegovinfo"
 
-	def __init__(self, start_date=None, end_date=None, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-
-		# load state from previous run
-		try:
-			self.start_date = self.state["start_date"]
-			self.end_date = self.state["end_date"]
-			self.date = self.state["date"]
-		except KeyError:
-			pass
-		except AttributeError:
-			pass
-
+	def __init__(self, start_date=None, end_date=None, backwards=False, *args, **kwargs):
 		if start_date is None:
 			self.start_date = datetime.datetime.now() - datetime.timedelta(days=30)
 			logging.info(f"No date supplied, setting date to {self.start_date}")
@@ -96,21 +84,58 @@ class DateRangeGovInfoSpider(GovInfoSpider):
 		else:
 			self.end_date = datetime.datetime.fromisoformat(end_date)
 
-		self.date = self.start_date
+		self.backwards = backwards
+
+		# load state from previous run
+		try:
+			self.start_date = self.state["start_date"]
+			self.end_date = self.state["end_date"]
+			self.date = self.state["date"]
+			self.backwards = self.state["backwards"]
+		except KeyError:
+			pass
+		except AttributeError:
+			pass
+
+		try:
+			# if we haven't set a date yet, set it
+			if self.date is None:
+				self.date = self.start_date if not self.backwards else self.end_date
+		except AttributeError:
+			self.date = self.start_date if not self.backwards else self.end_date
 
 		# save state so we can persist
 		self.state = {
 			"start_date": self.start_date,
 			"end_date": self.end_date,
 			"date": self.date,
+			"backwards": self.backwards,
 		}
+
+		logging.info(f"Starting date range spider with start date {self.start_date.date().isoformat()} " +
+					 f"and end date {self.end_date.date().isoformat()}")
+		logging.info(f"Active date is {self.date.date().isoformat()}")
+		logging.info(f"Backwards is {self.backwards}")
+
+		# init with date = self.date
+		super().__init__(date=self.date.date().isoformat(), *args, **kwargs)
+
+	def is_done(self):
+		if self.backwards:
+			return self.date < self.start_date
+		else:
+			return self.date > self.end_date
 
 	def start_requests(self, **kwargs):
 		# call the superclass method for each date in the range
-		while self.date < self.end_date:
+		while not self.is_done():
 			logging.debug(f"Starting requests for {self.date.date().isoformat()}")
 			yield from super().start_requests()
-			self.date += datetime.timedelta(days=1)
+			if self.backwards:
+				self.date -= datetime.timedelta(days=1)
+			else:
+				self.date += datetime.timedelta(days=1)
 			if self.date.weekday() == 0:
 				logging.info(f"Finished requests for {self.date.date().isoformat()}")
+
 			self.state["date"] = self.date
